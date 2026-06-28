@@ -3,36 +3,92 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>이천시 실시간 날씨</title>
+  <title>지역별 실시간 날씨</title>
 
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Noto Sans KR", Arial, sans-serif;
+    }
 
     body {
       min-height: 100vh;
+      padding: 24px;
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 24px;
       background: linear-gradient(135deg, #7dd3fc, #fde68a);
       color: #1f2937;
     }
 
     .card {
       width: 100%;
-      max-width: 440px;
+      max-width: 460px;
       padding: 30px 24px;
       border-radius: 28px;
-      background: rgba(255,255,255,0.92);
-      box-shadow: 0 18px 45px rgba(0,0,0,0.18);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
       text-align: center;
     }
 
-    .location { color: #64748b; font-size: 14px; margin-bottom: 8px; }
-    h1 { margin-bottom: 18px; }
-    .emoji { font-size: 78px; margin-bottom: 10px; }
-    .weather-text { font-size: 20px; font-weight: bold; margin-bottom: 8px; }
-    .temp { font-size: 50px; font-weight: 800; color: #f97316; margin-bottom: 20px; }
+    h1 {
+      margin-bottom: 16px;
+      font-size: 26px;
+    }
+
+    .search {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    input {
+      flex: 1;
+      padding: 13px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      font-size: 15px;
+    }
+
+    button {
+      padding: 13px 16px;
+      border: none;
+      border-radius: 14px;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .location {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .emoji {
+      font-size: 78px;
+      margin: 10px 0;
+    }
+
+    .weather-text {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .temp {
+      font-size: 50px;
+      font-weight: 800;
+      color: #f97316;
+      margin-bottom: 20px;
+    }
 
     .grid {
       display: grid;
@@ -54,7 +110,9 @@
       margin-bottom: 6px;
     }
 
-    .box strong { font-size: 18px; }
+    .box strong {
+      font-size: 17px;
+    }
 
     .dust-good { color: #2563eb; }
     .dust-normal { color: #16a34a; }
@@ -68,37 +126,36 @@
       line-height: 1.6;
     }
 
-    button {
-      width: 100%;
-      margin-top: 20px;
-      padding: 13px;
-      border: none;
-      border-radius: 999px;
-      background: #2563eb;
-      color: white;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:hover { background: #1d4ed8; }
-
     .error {
       display: none;
       margin-top: 14px;
       color: #dc2626;
       font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
     }
   </style>
 </head>
 
 <body>
   <div class="card">
-    <p class="location">경기도 이천시 · X 68, Y 121</p>
-    <h1>실시간 날씨</h1>
+    <h1>지역별 실시간 날씨</h1>
 
-    <div class="emoji" id="emoji">⏳</div>
-    <div class="weather-text" id="weatherText">불러오는 중...</div>
+    <div class="search">
+      <input id="regionInput" type="text" placeholder="예: 이천, 광명, 서울" />
+      <button onclick="searchWeather()">조회</button>
+    </div>
+
+    <p class="location" id="location">지역을 입력해주세요</p>
+
+    <div class="emoji" id="emoji">🌤️</div>
+    <div class="weather-text" id="weatherText">날씨 정보 대기 중</div>
     <div class="temp" id="temp">--°C</div>
 
     <div class="grid">
@@ -129,8 +186,11 @@
     </div>
 
     <p class="time" id="timeInfo">조회 시각: --</p>
-    <button onclick="loadAll()">새로고침</button>
     <p class="error" id="errorBox"></p>
+
+    <p class="hint">
+      지원 예시: 서울, 광명, 이천, 수원, 성남, 용인, 인천, 부산, 대구, 대전, 광주, 울산, 제주
+    </p>
   </div>
 
   <script>
@@ -142,8 +202,23 @@
     const DUST_URL =
       "https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty";
 
-    const NX = 68;
-    const NY = 121;
+    const REGIONS = {
+      "서울": { name: "서울특별시", nx: 60, ny: 127, sido: "서울", station: "중구" },
+      "광명": { name: "경기도 광명시", nx: 58, ny: 125, sido: "경기", station: "광명" },
+      "이천": { name: "경기도 이천시", nx: 68, ny: 121, sido: "경기", station: "이천" },
+      "수원": { name: "경기도 수원시", nx: 60, ny: 121, sido: "경기", station: "수원" },
+      "성남": { name: "경기도 성남시", nx: 63, ny: 124, sido: "경기", station: "성남" },
+      "용인": { name: "경기도 용인시", nx: 64, ny: 119, sido: "경기", station: "용인" },
+      "인천": { name: "인천광역시", nx: 55, ny: 124, sido: "인천", station: "구월동" },
+      "부산": { name: "부산광역시", nx: 98, ny: 76, sido: "부산", station: "부산진구" },
+      "대구": { name: "대구광역시", nx: 89, ny: 90, sido: "대구", station: "수창동" },
+      "대전": { name: "대전광역시", nx: 67, ny: 100, sido: "대전", station: "읍내동" },
+      "광주": { name: "광주광역시", nx: 58, ny: 74, sido: "광주", station: "서석동" },
+      "울산": { name: "울산광역시", nx: 102, ny: 84, sido: "울산", station: "신정동" },
+      "제주": { name: "제주특별자치도 제주시", nx: 52, ny: 38, sido: "제주", station: "이도동" }
+    };
+
+    let currentRegion = null;
 
     function getBaseDateTime() {
       const now = new Date();
@@ -152,6 +227,7 @@
 
       if (now.getMinutes() < 40) {
         hour--;
+
         if (hour < 0) {
           hour = 23;
           baseDate.setDate(baseDate.getDate() - 1);
@@ -168,14 +244,20 @@
       };
     }
 
-    function weatherApiUrl() {
-      const { base_date, base_time } = getBaseDateTime();
+    function getRegion(keyword) {
+      keyword = keyword.trim().replace(/\s/g, "");
 
-      return `${WEATHER_URL}?serviceKey=${SERVICE_KEY}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${base_date}&base_time=${base_time}&nx=${NX}&ny=${NY}`;
+      return Object.keys(REGIONS).find(key => keyword.includes(key));
     }
 
-    function dustApiUrl() {
-      return `${DUST_URL}?serviceKey=${SERVICE_KEY}&returnType=json&numOfRows=100&pageNo=1&sidoName=경기&ver=1.0`;
+    function weatherApiUrl(region) {
+      const { base_date, base_time } = getBaseDateTime();
+
+      return `${WEATHER_URL}?serviceKey=${SERVICE_KEY}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${base_date}&base_time=${base_time}&nx=${region.nx}&ny=${region.ny}`;
+    }
+
+    function dustApiUrl(region) {
+      return `${DUST_URL}?serviceKey=${SERVICE_KEY}&returnType=json&numOfRows=100&pageNo=1&sidoName=${encodeURIComponent(region.sido)}&ver=1.0`;
     }
 
     function getPtyName(pty) {
@@ -188,25 +270,31 @@
         "6": "비/눈날림",
         "7": "눈날림"
       };
+
       return map[pty] || "알 수 없음";
     }
 
-    function getWeatherInfo(pty) {
-      const map = {
-        "0": { text: "현재 강수는 없습니다", emoji: "☀️" },
-        "1": { text: "비가 내리고 있습니다", emoji: "🌧️" },
-        "2": { text: "비 또는 눈이 내립니다", emoji: "🌨️" },
-        "3": { text: "눈이 내리고 있습니다", emoji: "❄️" },
-        "5": { text: "빗방울이 떨어집니다", emoji: "🌦️" },
-        "6": { text: "비 또는 눈날림이 있습니다", emoji: "🌨️" },
-        "7": { text: "눈날림이 있습니다", emoji: "🌨️" }
-      };
-      return map[pty] || { text: "현재 날씨 정보입니다", emoji: "🌤️" };
+    function getWeatherInfo(pty, rain) {
+      if (pty === "1") return { text: "비가 내리고 있습니다", emoji: "🌧️" };
+      if (pty === "2") return { text: "비 또는 눈이 내립니다", emoji: "🌨️" };
+      if (pty === "3") return { text: "눈이 내리고 있습니다", emoji: "❄️" };
+      if (pty === "5") return { text: "빗방울이 떨어집니다", emoji: "🌦️" };
+      if (pty === "6") return { text: "비 또는 눈날림이 있습니다", emoji: "🌨️" };
+      if (pty === "7") return { text: "눈날림이 있습니다", emoji: "🌨️" };
+
+      if (rain && rain !== "0" && rain !== "강수없음") {
+        return { text: "강수가 관측되었습니다", emoji: "🌧️" };
+      }
+
+      return { text: "현재 강수는 없습니다", emoji: "☀️" };
     }
 
     function dustGrade(value, type) {
       const v = Number(value);
-      if (isNaN(v)) return { text: "--", className: "" };
+
+      if (isNaN(v)) {
+        return { text: "--", className: "" };
+      }
 
       if (type === "pm10") {
         if (v <= 30) return { text: "좋음", className: "dust-good" };
@@ -221,9 +309,13 @@
       return { text: "매우나쁨", className: "dust-very-bad" };
     }
 
-    async function loadWeather() {
-      const res = await fetch(weatherApiUrl());
-      const data = await res.json();
+    async function loadWeather(region) {
+      const response = await fetch(weatherApiUrl(region));
+      const data = await response.json();
+
+      if (!data.response || data.response.header.resultCode !== "00") {
+        throw new Error("날씨 API 응답 오류");
+      }
 
       const items = data.response.body.items.item;
       const weather = {};
@@ -237,7 +329,8 @@
       const rain = weather.RN1 ?? "0";
       const wind = weather.WSD ?? "--";
       const pty = weather.PTY ?? "0";
-      const info = getWeatherInfo(pty);
+
+      const info = getWeatherInfo(pty, rain);
 
       document.getElementById("emoji").textContent = info.emoji;
       document.getElementById("weatherText").textContent = info.text;
@@ -249,17 +342,23 @@
       document.getElementById("pty").textContent = getPtyName(pty);
     }
 
-    async function loadDust() {
-      const res = await fetch(dustApiUrl());
-      const data = await res.json();
+    async function loadDust(region) {
+      const response = await fetch(dustApiUrl(region));
+      const data = await response.json();
+
+      if (!data.response || !data.response.body.items) {
+        throw new Error("미세먼지 API 응답 오류");
+      }
 
       const items = data.response.body.items;
 
-      const icheon =
-        items.find(item => item.stationName.includes("이천")) || items[0];
+      const station =
+        items.find(item => item.stationName.includes(region.station)) ||
+        items.find(item => region.station.includes(item.stationName)) ||
+        items[0];
 
-      const pm10Value = icheon.pm10Value;
-      const pm25Value = icheon.pm25Value;
+      const pm10Value = station.pm10Value;
+      const pm25Value = station.pm25Value;
 
       const pm10Grade = dustGrade(pm10Value, "pm10");
       const pm25Grade = dustGrade(pm25Value, "pm25");
@@ -274,35 +373,76 @@
       pm25El.className = pm25Grade.className;
     }
 
-    async function loadAll() {
+    async function loadAll(region) {
       const errorBox = document.getElementById("errorBox");
+
       errorBox.style.display = "none";
       errorBox.textContent = "";
 
+      document.getElementById("location").textContent =
+        `${region.name} · X ${region.nx}, Y ${region.ny}`;
+
       document.getElementById("emoji").textContent = "⏳";
-      document.getElementById("weatherText").textContent = "불러오는 중...";
+      document.getElementById("weatherText").textContent = "날씨를 불러오는 중입니다...";
+      document.getElementById("temp").textContent = "--°C";
 
       try {
         await Promise.all([
-          loadWeather(),
-          loadDust()
+          loadWeather(region),
+          loadDust(region)
         ]);
 
+        const { base_date, base_time } = getBaseDateTime();
+
         document.getElementById("timeInfo").innerHTML =
-          `조회 시각: ${new Date().toLocaleString("ko-KR")}`;
+          `조회 시각: ${new Date().toLocaleString("ko-KR")}<br>
+           날씨 발표 기준: ${base_date} ${base_time}`;
 
       } catch (error) {
         document.getElementById("emoji").textContent = "⚠️";
-        document.getElementById("weatherText").textContent = "정보를 불러오지 못했습니다.";
+        document.getElementById("weatherText").textContent =
+          "정보를 불러오지 못했습니다.";
+
         errorBox.style.display = "block";
         errorBox.textContent =
-          "API 호출 실패: 인증키, CORS, 에어코리아 API 활용신청 여부를 확인해주세요.";
+          "API 호출에 실패했습니다. 인증키, CORS, API 활용신청 여부를 확인해주세요.";
+
         console.error(error);
       }
     }
 
-    loadAll();
-    setInterval(loadAll, 10 * 60 * 1000);
+    function searchWeather() {
+      const input = document.getElementById("regionInput").value;
+      const key = getRegion(input);
+
+      if (!key) {
+        document.getElementById("errorBox").style.display = "block";
+        document.getElementById("errorBox").textContent =
+          "지원하지 않는 지역입니다. 예: 이천, 광명, 서울, 부산";
+        return;
+      }
+
+      currentRegion = REGIONS[key];
+      loadAll(currentRegion);
+    }
+
+    document.getElementById("regionInput").addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        searchWeather();
+      }
+    });
+
+    // 기본 조회 지역
+    document.getElementById("regionInput").value = "이천";
+    currentRegion = REGIONS["이천"];
+    loadAll(currentRegion);
+
+    // 10분마다 현재 선택 지역 자동 갱신
+    setInterval(() => {
+      if (currentRegion) {
+        loadAll(currentRegion);
+      }
+    }, 10 * 60 * 1000);
   </script>
 </body>
 </html>
